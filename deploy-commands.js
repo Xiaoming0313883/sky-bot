@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const TOKEN = process.env.BOT_TOKEN || "MTQ3MjU2MzQyNjYwODgxMjA0NA.GuKpPQ.6mPl7FebC_JgMe2V6h9_adwZCl3Y6gDkVBxFeQ";
@@ -212,6 +213,111 @@ const commands = [
     new SlashCommandBuilder()
         .setName('info')
         .setDescription('💗 关于Sky Bot的一切'),
+
+    // /ask - AI对话
+    new SlashCommandBuilder()
+        .setName('ask')
+        .setDescription('🧠 问Sky任何问题')
+        .addStringOption(option =>
+            option.setName('question')
+                .setDescription('你想问Sky什么')
+                .setRequired(true)),
+
+    // /gaymode - 切换骚/正常模式 (owner only)
+    new SlashCommandBuilder()
+        .setName('gaymode')
+        .setDescription('🔄 切换Sky的骚骚模式/正常模式 (仅主人)')
+        .addBooleanOption(option =>
+            option.setName('toggle')
+                .setDescription('开启=true 关闭=false')
+                .setRequired(true)),
+
+    // /ignore-add - 添加忽略频道 (owner only)
+    new SlashCommandBuilder()
+        .setName('ignore-add')
+        .setDescription('🔇 添加忽略频道，Sky不会在该频道回应 (仅主人)')
+        .addChannelOption(option =>
+            option.setName('channel')
+                .setDescription('要忽略的频道')
+                .setRequired(true)),
+
+    // /ignore-remove - 移除忽略频道 (owner only)
+    new SlashCommandBuilder()
+        .setName('ignore-remove')
+        .setDescription('🔊 移除忽略频道，Sky重新在该频道回应 (仅主人)')
+        .addChannelOption(option =>
+            option.setName('channel')
+                .setDescription('要解除忽略的频道')
+                .setRequired(true)),
+
+    // /ignore-list - 查看忽略频道列表 (owner only)
+    new SlashCommandBuilder()
+        .setName('ignore-list')
+        .setDescription('📋 查看忽略频道列表 (仅主人)'),
+
+    // /graph - 画图表
+    new SlashCommandBuilder()
+        .setName('graph')
+        .setDescription('📊 画图表')
+        .addStringOption(option =>
+            option.setName('type')
+                .setDescription('图表类型')
+                .setRequired(true)
+                .addChoices(
+                    { name: '柱状图 (Bar)', value: 'bar' },
+                    { name: '折线图 (Line)', value: 'line' },
+                    { name: '饼图 (Pie)', value: 'pie' },
+                    { name: '函数图像 (Equation)', value: 'equation' },
+                ))
+        .addStringOption(option =>
+            option.setName('labels')
+                .setDescription('标签，用逗号分隔，如: A,B,C (equation模式不需要)')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('data')
+                .setDescription('数据，用逗号分隔，如: 10,20,30 (equation模式不需要)')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('equation')
+                .setDescription('方程式，如: x^2, sin(x), sqrt(x) (仅equation模式)')
+                .setRequired(false))
+        .addNumberOption(option =>
+            option.setName('x-min')
+                .setDescription('x最小值 (仅equation模式，默认-10)')
+                .setRequired(false))
+        .addNumberOption(option =>
+            option.setName('x-max')
+                .setDescription('x最大值 (仅equation模式，默认10)')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('title')
+                .setDescription('图表标题')
+                .setRequired(false))
+        .addStringOption(option =>
+            option.setName('color')
+                .setDescription('颜色 (hex)，如: #FF69B4')
+                .setRequired(false)),
+
+    // /calendar - 日历系统
+    new SlashCommandBuilder()
+        .setName('calendar')
+        .setDescription('📅 日历与事件记录')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('add')
+                .setDescription('添加一个事件')
+                .addStringOption(option => option.setName('event').setDescription('事件名称').setRequired(true))
+                .addStringOption(option => option.setName('time').setDescription('时间 (格式: 2026-05-07 15:30)').setRequired(true))
+                .addStringOption(option => option.setName('remind').setDescription('提前多久提醒 (如: 5m, 30m, 1h, 1d)').setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('查看所有待办事件'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('remove')
+                .setDescription('删除指定ID的事件')
+                .addIntegerOption(option => option.setName('id').setDescription('事件ID').setRequired(true))),
 
 ].map(cmd => cmd.toJSON());
 
