@@ -1662,6 +1662,8 @@ client.on('interactionCreate', async interaction => {
                     { name: '/dare', desc: 'Sky的大冒险' },
                     { name: '/graph', desc: '画图表' },
                     { name: '/calendar', desc: '日历与事件提醒系统' },
+                    { name: '/compile', desc: '运行代码 (Python, JS, C++, etc.)' },
+                    { name: '/ask', desc: 'AI 问答 (Gemini)' },
                     { name: '/info', desc: '就是这个！' },
                 ];
 
