@@ -148,4 +148,4 @@ Sky 接入了 **Google Gemini AI**，它不再只是死板的回复：
 
 ---
 
-Made with 💗 by **Sky** — Raub最骚的仔😘
+Made with 💗 for **Sky** — Raub最骚的仔😘
