@@ -1486,19 +1486,24 @@ client.on('interactionCreate', async interaction => {
                     await interaction.reply({ embeds: [embed] });
 
                 } else if (subcommand === 'list') {
-                    const userEvents = events.filter(e => e.userId === interaction.user.id && !e.reminded);
-                    if (userEvents.length === 0) {
-                        return interaction.reply({ content: gayMode ? "你目前没有任何待办呢宝贝~ 这种时候最适合来找Sky玩了😏💕" : "你目前没有待办事件。", ephemeral: true });
+                    const activeEvents = events.filter(e => !e.reminded);
+                    if (activeEvents.length === 0) {
+                        return interaction.reply({ content: gayMode ? "目前没有任何待办呢宝贝~ 这种时候最适合来找Sky玩了😏💕" : "目前没有待办事件。", ephemeral: true });
                     }
 
-                    const listText = userEvents.map(e => `\`ID: ${e.id}\` | **${e.name}**\n时间: <t:${Math.floor(e.time / 1000)}:R>`).join('\n\n');
+                    const listText = activeEvents.map(e => {
+                        const remindTime = e.time - e.remindOffset;
+                        const userLabel = `<@${e.userId}>`;
+                        return `\`ID: ${e.id}\` | **${e.name}**\n👤 **用户:** ${userLabel}\n📅 **事件时间:** <t:${Math.floor(e.time / 1000)}:F> (<t:${Math.floor(e.time / 1000)}:R>)\n⏰ **提醒时间:** <t:${Math.floor(remindTime / 1000)}:F> (<t:${Math.floor(remindTime / 1000)}:R>)`;
+                    }).join('\n\n');
+
                     const embed = new EmbedBuilder()
                         .setColor(getColor())
-                        .setTitle(gayMode ? '📅 宝贝的行程单 ✨' : '📅 你的待办事件')
+                        .setTitle(gayMode ? '📅 全服行程单 ✨' : '📅 所有待办事件')
                         .setDescription(gayMode
-                            ? `看你这么忙，Sky好心疼呜呜🥺💕\n\n${listText}`
+                            ? `大家都好忙哦，Sky好心疼呜呜🥺💕\n\n${listText}`
                             : listText)
-                        .setFooter({ text: gayMode ? 'Sky会一直陪着你的😘' : '日历列表' })
+                        .setFooter({ text: gayMode ? 'Sky会一直盯着大家的😘' : '全服日历列表' })
                         .setTimestamp();
                     await interaction.reply({ embeds: [embed] });
 
