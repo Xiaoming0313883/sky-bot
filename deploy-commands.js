@@ -319,34 +319,6 @@ const commands = [
                 .setDescription('删除指定ID的事件')
                 .addIntegerOption(option => option.setName('id').setDescription('事件ID').setRequired(true))),
 
-    // /compile - 代码运行
-    new SlashCommandBuilder()
-        .setName('compile')
-        .setDescription('💻 运行代码 (Piston API)')
-        .addStringOption(option =>
-            option.setName('language')
-                .setDescription('编程语言')
-                .setRequired(true)
-                .addChoices(
-                    { name: 'Python', value: 'python' },
-                    { name: 'JavaScript', value: 'javascript' },
-                    { name: 'C++', value: 'c++' },
-                    { name: 'Java', value: 'java' },
-                    { name: 'Rust', value: 'rust' },
-                    { name: 'Go', value: 'go' },
-                    { name: 'C', value: 'c' },
-                    { name: 'TypeScript', value: 'typescript' },
-                    { name: 'PHP', value: 'php' },
-                    { name: 'Ruby', value: 'ruby' },
-                ))
-        .addStringOption(option =>
-            option.setName('code')
-                .setDescription('要运行的代码')
-                .setRequired(true))
-        .addStringOption(option =>
-            option.setName('input')
-                .setDescription('标准输入 (stdin)')
-                .setRequired(false)),
 
 ].map(cmd => cmd.toJSON());
 

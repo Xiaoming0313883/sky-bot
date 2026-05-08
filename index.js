@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const https = require('https');
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -13,7 +14,44 @@ const client = new Client({
 
 const TOKEN = process.env.BOT_TOKEN;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const OWNER_ID = '771904270639169547';
+const OWNER_ID = process.env.OWNER_ID || '771904270639169547';
+
+// ============ Data Persistence ============
+const DATA_FILE = './data.json';
+
+function loadData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+            return {
+                ignoredChannels: new Set(data.ignoredChannels || []),
+                events: (data.events || []).map(e => ({ ...e, time: Number(e.time), reminded: !!e.reminded })),
+                eventIdCounter: data.eventIdCounter || 1
+            };
+        }
+    } catch (err) {
+        console.error("Failed to load data:", err.message);
+    }
+    return { ignoredChannels: new Set(), events: [], eventIdCounter: 1 };
+}
+
+const botData = loadData();
+let ignoredChannels = botData.ignoredChannels;
+let events = botData.events;
+let eventIdCounter = botData.eventIdCounter;
+
+function saveData() {
+    try {
+        const data = {
+            ignoredChannels: [...ignoredChannels],
+            events: events,
+            eventIdCounter: eventIdCounter
+        };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 4));
+    } catch (err) {
+        console.error("Failed to save data:", err.message);
+    }
+}
 
 // ============ Gay Mode Toggle ============
 let gayMode = true;
@@ -43,9 +81,6 @@ const NORMAL_SYSTEM_PROMPT = `你的名字是Sky，一个Discord聊天bot。你�
 - 回复要短（1-3句话）
 - 不要用markdown格式，不要用列表，不要用标题
 - 绝对不要说"我是AI"或"我是语言模型"之类的`;
-
-// ============ Ignore Channel System ============
-const ignoredChannels = new Set();
 
 // ============ AI Setup ============
 let genAI, aiModel;
@@ -384,72 +419,7 @@ function pick(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// ============ Piston API Helper ============
-const PISTON_API = 'https://emkc.org/api/v2/piston';
-let pistonRuntimes = null;
-
-async function fetchPistonRuntimes() {
-    try {
-        const res = await fetch(PISTON_API + '/runtimes');
-        pistonRuntimes = await res.json();
-        console.log(`Loaded ${pistonRuntimes.length} Piston runtimes`);
-    } catch (err) {
-        console.error("Failed to fetch Piston runtimes:", err.message);
-    }
-}
-
-const LANGUAGE_MAP = {
-    'python': { language: 'python', alias: 'python3' },
-    'javascript': { language: 'javascript', alias: 'node' },
-    'c++': { language: 'c++', alias: 'gcc' },
-    'java': { language: 'java', alias: 'jdk' },
-    'rust': { language: 'rust', alias: 'rustc' },
-    'go': { language: 'go', alias: 'go' },
-    'ruby': { language: 'ruby', alias: 'ruby' },
-    'php': { language: 'php', alias: 'php' },
-    'typescript': { language: 'typescript', alias: 'tsc' },
-    'c': { language: 'c', alias: 'gcc' },
-};
-
-async function compileCode(language, code, stdin = '') {
-    const langInfo = LANGUAGE_MAP[language];
-    if (!langInfo) return { error: '不支持的语言' };
-
-    let version = '*';
-    if (pistonRuntimes) {
-        const runtime = pistonRuntimes.find(r =>
-            r.language.toLowerCase() === langInfo.language.toLowerCase()
-        );
-        if (runtime) version = runtime.version;
-    }
-
-    try {
-        const res = await fetch(PISTON_API + '/execute', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                language: langInfo.alias || langInfo.language,
-                version,
-                stdin,
-                files: [{ content: code }],
-            }),
-            signal: AbortSignal.timeout(15000),
-        });
-        const data = await res.json();
-        // Check for compile errors (C++, Java, Rust, etc.)
-        if (data.compile && data.compile.code !== 0) {
-            return { compileError: true, compileStderr: data.compile.stderr || '', compileStdout: data.compile.stdout || '', run: data.run };
-        }
-        return data;
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
 // ============ Calendar System ============
-let events = []; 
-let eventIdCounter = 1;
-
 function parseReminderTime(str) {
     if (!str) return 0;
     const match = str.match(/^(\d+)([smhd])$/);
@@ -471,6 +441,7 @@ function checkEvents() {
         // Notification check
         if (!event.reminded && (event.time - event.remindOffset) <= now) {
             event.reminded = true;
+            saveData();
             try {
                 const channel = await client.channels.fetch(event.channelId);
                 if (channel) {
@@ -490,7 +461,9 @@ function checkEvents() {
         }
     });
     // Cleanup: remove events older than 1 hour
+    const oldLength = events.length;
     events = events.filter(e => e.time > now - 3600000);
+    if (events.length !== oldLength) saveData();
 }
 setInterval(checkEvents, 30000);
 
@@ -517,7 +490,6 @@ const statuses = gayStatuses;
 
 client.once('clientReady', () => {
     console.log(`${BOT_NAME} is online! 💗`);
-    fetchPistonRuntimes();
     let statusIndex = 0;
     const currentStatuses = () => gayMode ? gayStatuses : normalStatuses;
     client.user.setActivity(currentStatuses()[0]);
@@ -700,6 +672,7 @@ client.on('interactionCreate', async interaction => {
                     return interaction.reply({ content: `频道 ${channel.name} 已经在忽略列表中了。`, ephemeral: true });
                 }
                 ignoredChannels.add(channel.id);
+                saveData();
                 const embed = new EmbedBuilder()
                     .setColor(getColor())
                     .setTitle('🔇 频道已忽略')
@@ -722,6 +695,7 @@ client.on('interactionCreate', async interaction => {
                     return interaction.reply({ content: `频道 ${channel.name} 不在忽略列表中。`, ephemeral: true });
                 }
                 ignoredChannels.delete(channel.id);
+                saveData();
                 const embed = new EmbedBuilder()
                     .setColor(getColor())
                     .setTitle('🔊 频道已解除忽略')
@@ -785,7 +759,7 @@ client.on('interactionCreate', async interaction => {
                                 .replace(/pi/g, 'Math.PI')
                                 .replace(/e/g, 'Math.E')
                                 .replace(/\^/g, '**');
-                            
+
                             // Create a function that takes x and returns the result
                             const func = new Function('x', `return ${expr}`);
                             const y = func(x);
@@ -852,7 +826,7 @@ client.on('interactionCreate', async interaction => {
                     const embed = new EmbedBuilder()
                         .setColor(getColor())
                         .setTitle(gayMode ? gayEmbedTitle : `📊 ${title || '函数图像'}`)
-                        .setDescription(gayMode 
+                        .setDescription(gayMode
                             ? `**方程:** \`y = ${equationInput}\`\n**范围:** x ∈ [${xMin}, ${xMax}]\n\n怎么样宝贝？这线条是不是跟我一样曼妙？😏💕`
                             : `**方程:** \`y = ${equationInput}\`\n**范围:** x ∈ [${xMin}, ${xMax}]`)
                         .setImage(chartUrl)
@@ -947,72 +921,7 @@ client.on('interactionCreate', async interaction => {
                 break;
             }
 
-            // ---- /compile ----
-            case 'compile': {
-                const language = interaction.options.getString('language');
-                const code = interaction.options.getString('code');
-                const stdin = interaction.options.getString('input') || '';
 
-                if (!LANGUAGE_MAP[language]) {
-                    return interaction.reply({ content: "不支持的语言。", ephemeral: true });
-                }
-
-                await interaction.deferReply();
-                const result = await compileCode(language, code, stdin);
-
-                if (result.error) {
-                    const embed = new EmbedBuilder()
-                        .setColor(0xFF0000)
-                        .setTitle('💻 请求失败')
-                        .setDescription(`**错误：** ${result.error}`)
-                        .setTimestamp();
-                    return interaction.editReply({ embeds: [embed] });
-                }
-
-                // Compile error (C++, Java, Rust, etc.)
-                if (result.compileError) {
-                    const compileErr = (result.compileStderr || result.compileStdout || '').slice(0, 1500);
-                    let description = `**语言:** ${language}\n**阶段:** 编译失败\n\n**编译错误:**\n\`\`\`\n${compileErr || '未知编译错误'}\n\`\`\``;
-                    // Still show runtime output if it ran
-                    if (result.run) {
-                        const rtOut = (result.run.stdout || '').slice(0, 500);
-                        const rtErr = (result.run.stderr || '').slice(0, 500);
-                        if (rtOut) description += `\n**运行输出:**\n\`\`\`\n${rtOut}\n\`\`\``;
-                        if (rtErr) description += `\n**运行错误:**\n\`\`\`\n${rtErr}\n\`\`\``;
-                    }
-                    const embed = new EmbedBuilder()
-                        .setColor(0xFF0000)
-                        .setTitle('💻 编译失败')
-                        .setDescription(description.length > 4096 ? description.slice(0, 4090) + '...' : description)
-                        .setFooter({ text: 'Powered by Piston API' })
-                        .setTimestamp();
-                    return interaction.editReply({ embeds: [embed] });
-                }
-
-                const stdout = (result.run?.stdout || '').slice(0, 1000);
-                const stderr = (result.run?.stderr || '').slice(0, 500);
-                const exitCode = result.run?.code ?? 'N/A';
-                const signal = result.run?.signal || '';
-
-                let description = `**语言:** ${language}\n**退出码:** ${exitCode}${signal ? ` (${signal})` : ''}\n\n`;
-                if (stdout) {
-                    description += `**输出:**\n\`\`\`\n${stdout}\n\`\`\``;
-                } else {
-                    description += `**输出:** *(程序没有输出 — 你需要用 print/printf/cout 等来输出结果)*\n`;
-                }
-                if (stderr) {
-                    description += `\n**错误输出:**\n\`\`\`\n${stderr}\n\`\`\``;
-                }
-
-                const embed = new EmbedBuilder()
-                    .setColor(exitCode === 0 ? 0x57F287 : 0xFF0000)
-                    .setTitle('💻 代码运行结果')
-                    .setDescription(description.length > 4096 ? description.slice(0, 4090) + '...' : description)
-                    .setFooter({ text: 'Powered by Piston API' })
-                    .setTimestamp();
-                await interaction.editReply({ embeds: [embed] });
-                break;
-            }
 
             // ---- /say ----
             case 'say': {
@@ -1565,6 +1474,7 @@ client.on('interactionCreate', async interaction => {
                     };
 
                     events.push(newEvent);
+                    saveData();
                     const embed = new EmbedBuilder()
                         .setColor(getColor())
                         .setTitle(gayMode ? '📅 计划通！帮宝贝记下了💖' : '📅 事件已记录')
@@ -1585,7 +1495,7 @@ client.on('interactionCreate', async interaction => {
                     const embed = new EmbedBuilder()
                         .setColor(getColor())
                         .setTitle(gayMode ? '📅 宝贝的行程单 ✨' : '📅 你的待办事件')
-                        .setDescription(gayMode 
+                        .setDescription(gayMode
                             ? `看你这么忙，Sky好心疼呜呜🥺💕\n\n${listText}`
                             : listText)
                         .setFooter({ text: gayMode ? 'Sky会一直陪着你的😘' : '日历列表' })
@@ -1600,6 +1510,7 @@ client.on('interactionCreate', async interaction => {
                     }
 
                     const removed = events.splice(index, 1)[0];
+                    saveData();
                     await interaction.reply({ content: gayMode ? `哼，既然你不想让我记着 **${removed.name}**，那我就把它忘掉好了！😤 但是不许忘掉我！💕` : `已成功删除事件：**${removed.name}** ✅` });
                 }
                 break;
@@ -1662,7 +1573,6 @@ client.on('interactionCreate', async interaction => {
                     { name: '/dare', desc: 'Sky的大冒险' },
                     { name: '/graph', desc: '画图表' },
                     { name: '/calendar', desc: '日历与事件提醒系统' },
-                    { name: '/compile', desc: '运行代码 (Python, JS, C++, etc.)' },
                     { name: '/ask', desc: 'AI 问答 (Gemini)' },
                     { name: '/info', desc: '就是这个！' },
                 ];

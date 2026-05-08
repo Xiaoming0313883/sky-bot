@@ -29,6 +29,7 @@ node index.js
 ```env
 BOT_TOKEN=你的_Discord_Bot_Token
 GEMINI_API_KEY=你的_Google_Gemini_API_Key (可选，开启AI功能)
+OWNER_ID=你的_Discord_用户ID (用于主人特权命令)
 ```
 
 ---
@@ -64,7 +65,6 @@ Sky 现在拥有更强大的功能，涵盖了娱乐、AI、工具和管理。
 | 命令 | 描述 |
 |------|------|
 | `/ask` | 🧠 **AI 问答**：直接向 Sky 提问 (由 Gemini 驱动) |
-| `/compile` | 💻 **运行代码**：直接在 Discord 运行 Python, JS, C++ 等 |
 | `/graph` | 📊 **画图表**：支持柱状图、折线图、饼图和**函数图像** |
 | `/calendar` | 📅 **日历系统**：添加、查看、删除提醒事件 |
 | `/remind` | ⏰ 简单定时提醒 (最多24小时) |
@@ -136,7 +136,6 @@ Sky 接入了 **Google Gemini AI**，它不再只是死板的回复：
 - **Library**: `discord.js v14`
 - **AI**: `Google Generative AI (Gemini)`
 - **Chart API**: `QuickChart`
-- **Code Execution**: `Piston API`
 
 ---
 
