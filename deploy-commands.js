@@ -218,6 +218,10 @@ const commands = [
     new SlashCommandBuilder()
         .setName('ask')
         .setDescription('🧠 问Sky任何问题')
+        .addBooleanOption(option =>
+            option.setName('serious_mode')
+                .setDescription('开启后Sky将会用很认真的态度回复你')
+                .setRequired(true))
         .addStringOption(option =>
             option.setName('question')
                 .setDescription('你想问Sky什么')
