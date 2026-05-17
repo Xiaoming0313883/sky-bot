@@ -503,6 +503,7 @@ client.once('clientReady', () => {
 });
 
 // ============ Message Events ============
+const skyMessageCooldowns = new Map();
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
     if (ignoredChannels.has(message.channel.id)) return;
@@ -569,6 +570,23 @@ client.on('messageCreate', async message => {
 
     // "sky" as standalone word
     if (/\bsky\b/i.test(content) && !/\bskype\b/i.test(content) && !/\bskyblock\b/i.test(content) && !/\bskylar\b/i.test(content)) {
+        const now = Date.now();
+        let lastTimeInfo = skyMessageCooldowns.get(message.author.id);
+        
+        if (typeof lastTimeInfo === 'number') {
+            lastTimeInfo = { time: lastTimeInfo, warned: false };
+            skyMessageCooldowns.set(message.author.id, lastTimeInfo);
+        }
+        
+        if (lastTimeInfo && (now - lastTimeInfo.time < 300000)) {
+            if (!lastTimeInfo.warned) {
+                lastTimeInfo.warned = true;
+                return message.channel.send(`${message.author} 慢一点嘛~ 刷屏的话我接下来5分钟都不会理你了哦😤💕`);
+            }
+            return;
+        }
+        
+        skyMessageCooldowns.set(message.author.id, { time: now, warned: false });
         return message.channel.send(pick(R('skyResponses')));
     }
 
